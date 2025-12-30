@@ -1,0 +1,9 @@
+asyncio==4.0.0
+websockets==15.0
+pyaudio==0.2.14
+datetime==5.5
+silero-vad==6.2.0
+huggingface-hub==1.2.3
+kenlm==0.3.0
+git+https://github.com/mediacatch/pyctcdecode.git@ff49fc562bf8fc5d6697d4dcd34188dd630cc977
+git+https://github.com/huggingface/transformers.git@65dc261512cbdb1ee72b88ae5b222f2605aad8e5
