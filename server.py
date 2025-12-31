@@ -18,8 +18,8 @@ import huggingface_hub
 
 from text_processing import *
 
-from huggingface_hub import login
-login()
+# from huggingface_hub import login
+# login()
 
 # ---------------------------------------------------
 # LOGGING (BASIC)
