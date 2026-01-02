@@ -45,7 +45,7 @@ transcription_queue = asyncio.Queue()
 model_id = "google/medasr"
 
 def _restore_text(text: str) -> str:
-  return text.replace(" ", "").replace("#", " ").replace("</s>", "").replace(".", "").replace("]", "").replace("[", "").strip()
+  return text.replace(" ", "").replace("#", " ").replace(".</s>", "").replace(". </s>", "").replace("</s>", "").replace("]", "").replace("[", "").strip()
 
 
 class LasrCtcBeamSearchDecoder:
