@@ -11,9 +11,15 @@ REPLACEMENTS = {
     "{dash}": "-",
     "{newline}": "<br>",
     "{new line}": "<br>",
+    "{next line}": "<br>",
     "{new paragraph}": "<br><br>",
+    "{new para}": "<br><br>",
+    "{next paragraph}": "<br><br>",
+    "{next para}": "<br><br>",
     "{open parenthesis}": "(",
-    "{close parenthesis}": ")"
+    "{close parenthesis}": ")",
+    "unintelligible": "",
+    "ch": "",
 }
 
 # --------Number Normalization--------
@@ -67,76 +73,18 @@ ORDINAL_WORDS = {
 
 # --------Regex Pattern--------
 WORD_PATTERN = re.compile(r"<br>|\w+|[^\w\s]")
-CAPS_PATTERN = re.compile(r"\{caps\}\s+(\w+)", re.IGNORECASE)
+CAPS_PATTERN = re.compile(r"(?:\{?\b(?:capitalized|capitalize|caps)\b\}?)\s+(.*?)(?=<br>|$)", re.IGNORECASE)
+BOLD_PATTERN = re.compile(r"(?:\{?\b(?:bold)\b\}?(?:\s+paragraph)?)\s+(.*?)(?=<br>|$)", re.IGNORECASE)
+UNDERLINE_PATTERN = re.compile(r"(?:\{?\b(?:underline)\b\}?(?:\s+paragraph)?)\s+(.*?)(?=<br>|$)", re.IGNORECASE)
+HEADING_PATTERN = re.compile(r"(?:\{?\b(?:heading)\b\}?)\s+(.*?)(?=<br>|$)", re.IGNORECASE)
+TITLE_PATTERN = re.compile(r"(?:\{?\b(?:title)\b\}?)\s+(.*?)(?=<br>|$)", re.IGNORECASE)
+SUBTITLE_PATTERN = re.compile(r"(?:\{?\b(?:subtitle)\b\}?)\s+(.*?)(?=<br>|$)", re.IGNORECASE)
 CURLY_PATTERN = re.compile(r"[{}]")
 WHITESPACE_PATTERN = re.compile(r"\s+")
-PUNCTUATION_PATTERN = re.compile(r"[,?!:;/]")
+PUNCTUATION_PATTERN = re.compile(r"[.,?!:;/]")
 REPLACEMENT_PATTERN = re.compile("|".join(re.escape(k) for k in sorted(REPLACEMENTS, key=len, reverse=True)))
 NUMBER_PATTERN = re.compile(r"\b(" + "|".join(NUMBER_WORDS.keys()) + r")\b", re.IGNORECASE)
 ORDINAL_PATTERN = re.compile(r"\b(" + "|".join(ORDINAL_WORDS.keys()) + r")\b", re.IGNORECASE)
-
-# ---------Formatting Tags---------
-FORMATTING_TAGS = {
-    "underline": "u",
-    "bold": "strong",
-    "italic": "em",
-}
-SPECIAL_FORMATTING = {
-    "heading": lambda x: f'<strong style="font-size: 20px;">{x}</strong>',
-    "title": lambda x: f'<strong style="font-size: 24px;"><u>{x}<u></strong>',
-    "subtitle": lambda x: f'<strong style="font-size: 16px;"><u>{x}<u></strong>',
-}
-
-
-def format_sentence(sentence):
-    words = WORD_PATTERN.findall(sentence)
-
-    result = []
-    formatting = set()
-    paragraph_mode = False
-    special_modes = set()
-    formatted_content = []
-
-    def apply_formatting(text):
-        for fmt in formatting:
-            text = f"<{fmt}>{text}</{fmt}>"
-        for mode in special_modes:
-            if mode in SPECIAL_FORMATTING:
-                text = SPECIAL_FORMATTING[mode](text)
-        return text
-
-    for word in words:
-        word_lower = word.lower()
-        if word_lower in FORMATTING_TAGS:
-            formatting.add(FORMATTING_TAGS[word_lower])
-        elif word_lower in SPECIAL_FORMATTING:
-            special_modes.add(word_lower)
-        elif word_lower == "paragraph":
-            paragraph_mode = True
-            formatted_content = []
-        elif word_lower == "<br>":
-            if paragraph_mode or special_modes:
-                result.append(apply_formatting(" ".join(formatted_content)))
-                result.append(word)
-                formatting = set()
-                special_modes = set()
-                paragraph_mode = False
-                formatted_content = []
-            else:
-                result.append(word)
-        else:
-            if paragraph_mode or special_modes:
-                formatted_content.append(word)
-            elif formatting:
-                result.append(apply_formatting(word))
-                formatting = set()
-            else:
-                result.append(word)
-
-    if (paragraph_mode or special_modes) and (formatting or special_modes):
-        result.append(apply_formatting(" ".join(formatted_content)))
-
-    return " ".join(result)
 
 
 def text_post_processing(text: str) -> str:
@@ -144,8 +92,13 @@ def text_post_processing(text: str) -> str:
     text = REPLACEMENT_PATTERN.sub(lambda m: REPLACEMENTS[m.group(0)], text)
     text = CAPS_PATTERN.sub(lambda m: m.group(1).upper(), text)
     text = CURLY_PATTERN.sub(" ", text)
+    text = HEADING_PATTERN.sub(lambda m: f'''<strong style="font-size: 20px;">{m.group(1)}</strong>''', text)
+    text = TITLE_PATTERN.sub(lambda m: f'''<strong style="font-size: 24px;"><u>{m.group(1)}</u></strong>''', text)
+    text = SUBTITLE_PATTERN.sub(lambda m: f'''<strong style="font-size: 16px;"><u>{m.group(1)}</u></strong>''', text)
+    text = BOLD_PATTERN.sub(lambda m: f"<strong>{m.group(1)}</strong>", text)
+    text = UNDERLINE_PATTERN.sub(lambda m: f"<u>{m.group(1)}</u>", text)
     text = WHITESPACE_PATTERN.sub(" ", text).strip()
     text = ORDINAL_PATTERN.sub(lambda m: ORDINAL_WORDS[m.group(1).lower()], text)
     text = NUMBER_PATTERN.sub(lambda m: NUMBER_WORDS[m.group(1).lower()], text)
-
-    return format_sentence(text)
+    
+    return text

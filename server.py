@@ -217,7 +217,6 @@ async def transcribe_and_send(client_id, audio_bytes, status, silence_duration):
         audio_array = audio_bytes_to_array(audio_bytes)
 
         result = pipe_with_lm(audio_array, chunk_length_s=20, stride_length_s=2, decoder_kwargs=dict(beam_width=8))
-
         transcript = result["text"]
         text_ = ""
         if transcript:
