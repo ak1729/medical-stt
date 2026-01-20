@@ -18,8 +18,6 @@ REPLACEMENTS = {
     "{next para}": "<br><br>",
     "{open parenthesis}": "(",
     "{close parenthesis}": ")",
-    "unintelligible": "",
-    "ch": "",
 }
 
 # --------Number Normalization--------

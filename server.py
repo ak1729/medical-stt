@@ -101,9 +101,9 @@ audio = pyaudio.PyAudio()
 client_map = {}
 
 # Silence detection parameters
-SILENCE_THRESHOLD = 0.2
-MIN_SILENCE_LENGTH = 0.4
-MIN_AUDIO_DURATION = 4
+MIN_SILENCE_LENGTH = 0.8
+MIN_AUDIO_DURATION = 2.0
+MAX_SILENCE_BUFFER = 5.0
 
 # Remove initial samples
 samples_to_remove = 44
@@ -138,6 +138,7 @@ async def receive_and_write_audio(websocket):
         "websocket": websocket,
         "buffer": b"",
         "last_active": datetime.datetime.utcnow(),
+        "last_speech_time": None,
     }
     logger.info(f"React client connected: {client_id}")
 
@@ -156,7 +157,7 @@ async def receive_and_write_audio(websocket):
                     )
                     client_map[client_id]["buffer"] += cleaned_audio
                     buffer = client_map[client_id]["buffer"]
-
+                    buffer_duration_seconds = len(buffer) / RATE / 2
                     audio_array = (
                         np.frombuffer(buffer, dtype=np.int16).astype(np.float32)
                         / 32768.0
@@ -167,6 +168,9 @@ async def receive_and_write_audio(websocket):
                     )
 
                     if speech_timestamps:
+                        logger.info(f"speech timestamp detected")
+                        client_map[client_id]["last_speech_time"] = datetime.datetime.utcnow()
+                        # client_map[client_id]["buffer"] += cleaned_audio
                         last_speech_end = speech_timestamps[-1]["end"] / RATE
                         buffer_duration = len(buffer) / RATE / 2
                         silence_duration = buffer_duration - last_speech_end
@@ -191,6 +195,19 @@ async def receive_and_write_audio(websocket):
                             )
 
                     else:
+                        last_speech = client_map[client_id].get("last_speech_time")
+                        current_time = datetime.datetime.utcnow()
+
+                        if last_speech:
+                            silence_since_speech = (current_time - last_speech).total_seconds()
+                        else:
+                            silence_since_speech = buffer_duration_seconds
+
+                        if silence_since_speech > MAX_SILENCE_BUFFER:
+                            logger.info(f"Clearing buffer due to prolonged silence ({silence_since_speech:.2f}s)")
+                            client_map[client_id]["buffer"] = b""
+                            client_map[client_id]["last_speech_time"] = None
+                            
                         ws = client_map[client_id]["websocket"]
                         response = json.dumps({"status": "unconfirmed", "transcription": ""})
                         await safe_ws_send(ws, response)
