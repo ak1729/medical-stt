@@ -98,7 +98,7 @@ pipe_with_lm = beam_search_pipe(
 audio = pyaudio.PyAudio()
 
 # Client tracking dictionary
-client_map = {}
+client_map = {}  # Maps client_id -> {"websocket": ws, "last_ended_with_delimiter": bool}
 
 # Silence detection parameters
 MIN_SILENCE_LENGTH = 0.8
@@ -139,6 +139,7 @@ async def receive_and_write_audio(websocket):
         "buffer": b"",
         "last_active": datetime.datetime.utcnow(),
         "last_speech_time": None,
+        "last_ended_with_delimiter": False,
     }
     logger.info(f"React client connected: {client_id}")
 
@@ -241,7 +242,9 @@ async def transcribe_and_send(client_id, audio_bytes, status, silence_duration):
             if status == "confirmed":
                 text_ = transcript.strip()
                 logger.info(f"original text: {text_}")
-                text_ = text_post_processing(text_)
+                prev_delimiter = client_map[client_id].get("last_ended_with_delimiter", False)
+                text_, ends_with_delimiter = text_post_processing(text_, previous_ended_with_delimiter=prev_delimiter)
+                client_map[client_id]["last_ended_with_delimiter"] = ends_with_delimiter
                 logger.info(f"corrected text: {text_}")
 
             else:

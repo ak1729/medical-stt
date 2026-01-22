@@ -83,9 +83,10 @@ PUNCTUATION_PATTERN = re.compile(r"[.,?!:;/]")
 REPLACEMENT_PATTERN = re.compile("|".join(re.escape(k) for k in sorted(REPLACEMENTS, key=len, reverse=True)))
 NUMBER_PATTERN = re.compile(r"\b(" + "|".join(NUMBER_WORDS.keys()) + r")\b", re.IGNORECASE)
 ORDINAL_PATTERN = re.compile(r"\b(" + "|".join(ORDINAL_WORDS.keys()) + r")\b", re.IGNORECASE)
+CAPITALIZE_AFTER_PATTERN = re.compile(r"(?:<br>|\.)(\s*)([a-z])")
 
 
-def text_post_processing(text: str) -> str:
+def text_post_processing(text, previous_ended_with_delimiter=False):
     text = PUNCTUATION_PATTERN.sub("", text)
     text = REPLACEMENT_PATTERN.sub(lambda m: REPLACEMENTS[m.group(0)], text)
     text = CAPS_PATTERN.sub(lambda m: m.group(1).upper(), text)
@@ -93,10 +94,15 @@ def text_post_processing(text: str) -> str:
     text = HEADING_PATTERN.sub(lambda m: f'''<strong style="font-size: 20px;">{m.group(1)[0].upper() + m.group(1)[1:]}</strong>''', text)
     text = TITLE_PATTERN.sub(lambda m: f'''<strong style="font-size: 24px;"><u>{m.group(1)[0].upper() + m.group(1)[1:]}</u></strong>''', text)
     text = SUBTITLE_PATTERN.sub(lambda m: f'''<strong style="font-size: 16px;"><u>{m.group(1)[0].upper() + m.group(1)[1:]}</u></strong>''', text)
-    text = BOLD_PATTERN.sub(lambda m: f"<strong>{m.group(1)}</strong>", text)
-    text = UNDERLINE_PATTERN.sub(lambda m: f"<u>{m.group(1)}</u>", text)
+    text = BOLD_PATTERN.sub(lambda m: f"<strong>{m.group(1)[0].upper() + m.group(1)[1:] if previous_ended_with_delimiter and m.group(1) and m.group(1)[0].islower() else m.group(1)}</strong>", text)
+    text = UNDERLINE_PATTERN.sub(lambda m: f"<u>{m.group(1)[0].upper() + m.group(1)[1:] if previous_ended_with_delimiter and m.group(1) and m.group(1)[0].islower() else m.group(1)}</u>", text)
     text = WHITESPACE_PATTERN.sub(" ", text).strip()
     text = ORDINAL_PATTERN.sub(lambda m: ORDINAL_WORDS[m.group(1).lower()], text)
     text = NUMBER_PATTERN.sub(lambda m: NUMBER_WORDS[m.group(1).lower()], text)
+    text = CAPITALIZE_AFTER_PATTERN.sub(lambda m: m.group(0)[:-1].upper(), text)
     
-    return text
+    if previous_ended_with_delimiter and text and text[0].islower():
+        text = text[0].upper() + text[1:]
+    ends_with_period_or_br = bool(re.search(r'(?:<br>|\.)(?:\s*)$', text.rstrip()))
+    
+    return text, ends_with_period_or_br
